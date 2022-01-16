@@ -202,6 +202,96 @@ config HAVE_KPROBES_ON_FTRACE
 config HAVE_NMI
 	bool
 
+config NETFILTER_XT_MATCH_QTAGUID
+	def_bool y
+
+config ANDROID_LOW_MEMORY_KILLER
+	def_bool y
+
+config ANDROID_PARANOID_NETWORK
+	def_bool n
+
+config SELINUX_BOOTPARAM
+	def_bool y
+
+config SECURITY_SELINUX_BOOTPARAM
+	def_bool y
+
+config MEMCG_KMEM
+	def_bool y
+
+config NETPRIO_CGROUP
+	def_bool y
+
+config ISO9660_FS
+	def_bool y
+
+config SECURITY_YAMA_STACKED
+	def_bool y
+
+config VLAN_8021Q
+	def_bool y
+
+config VLAN
+	def_bool y
+
+config MACVLAN
+	def_bool y
+
+config CHECKPOINT_RESTORE
+	def_bool y
+
+config LBDAF
+	def_bool y
+
+config SQUASHFS_XZ
+	def_bool y
+
+config SW_SYNC_USER
+	def_bool y
+
+config SQUASHFS_FILE_DIRECT
+	def_bool y
+
+config SQUASHFS_XATTR
+	def_bool y
+
+config SQUASHFS_4K_DEVBLK_SIZE
+	def_bool y
+
+config IP6_NF_TARGET_MASQUERADE
+	def_bool y
+
+config SQUASHFS_DECOMP_MULTI
+	def_bool y
+	
+config SECURITY_SELINUX_BOOTPARAM
+	def_bool y
+	
+config SECURITY_SELINUX
+	def_bool y
+
+config CGROUP_MEM_RES_CTLR_KMEM
+	def_bool y
+
+config CGROUP_MEM_RES_CTLR_SWAP
+	def_bool y
+
+config BT_MSM_SLEEP
+	def_bool n
+
+config PFK
+	def_bool n
+
+config WATCHDOG_CORE
+	def_bool y
+
+config WATCHDOG_NOWAYOUT
+	def_bool y
+	
+config SW_SYNC
+	def_bool y
+
 #
 # An arch should select this if it provides all these things:
 #

@@ -291,6 +291,15 @@ config WATCHDOG_NOWAYOUT
 	
 config SW_SYNC
 	def_bool y
+	
+config NETFILTER_XT_TARGET_CHECKSUM
+	def_bool y
+	
+config INPUT_FF_MEMLESS
+	def_bool y
+	
+config ANDROID_TIMED_OUTPUT
+	def_bool n
 
 #
 # An arch should select this if it provides all these things:

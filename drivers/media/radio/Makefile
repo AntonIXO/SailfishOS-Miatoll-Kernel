@@ -5,6 +5,7 @@
 
 obj-$(CONFIG_RADIO_ISA) += radio-isa.o
 obj-$(CONFIG_RADIO_AZTECH) += radio-aztech.o
+obj-$(CONFIG_RADIO_IRIS) += radio-iris.o
 obj-$(CONFIG_RADIO_RTRACK2) += radio-rtrack2.o
 obj-$(CONFIG_RADIO_SF16FMI) += radio-sf16fmi.o
 obj-$(CONFIG_RADIO_SF16FMR2) += radio-sf16fmr2.o
@@ -35,6 +36,7 @@ obj-$(CONFIG_RADIO_WL128X) += wl128x/
 obj-$(CONFIG_RADIO_TEA575X) += tea575x.o
 obj-$(CONFIG_USB_RAREMONO) += radio-raremono.o
 
+radio-iris-objs := radio-iris-v4l2.o radio-iris-transport.o
 shark2-objs := radio-shark2.o radio-tea5777.o
 
 ccflags-y += -Isound

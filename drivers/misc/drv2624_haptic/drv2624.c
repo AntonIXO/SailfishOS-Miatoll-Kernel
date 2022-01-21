@@ -2254,7 +2254,7 @@ static int drv2624_i2c_probe(struct i2c_client *client,
 	input_set_capability(pDRV2624->input_dev, EV_FF, FF_GAIN);
 	input_set_capability(pDRV2624->input_dev, EV_FF, FF_PERIODIC);
 	input_set_capability(pDRV2624->input_dev, EV_FF, FF_CUSTOM);
-	nResult = input_ff_create_memless(pDRV2624->input_dev, EFFECT_MAX_NUM);
+	nResult = input_ff_create_memless(pDRV2624->input_dev, NULL, EFFECT_MAX_NUM);
 	/*
 	   nResult = device_create_file(pDRV2624->dev, &dev_attr_enable);
 	   nResult = device_create_file(pDRV2624->dev, &dev_attr_NAME);

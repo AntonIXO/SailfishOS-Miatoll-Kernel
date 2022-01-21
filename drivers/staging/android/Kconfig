@@ -36,7 +36,7 @@ config ANDROID_LOW_MEMORY_KILLER
 
 config ANDROID_TIMED_OUTPUT
 	bool "Timed output class driver"
-	default y
+	default n
 
 config ANDROID_LOW_MEMORY_KILLER_AUTODETECT_OOM_ADJ_VALUES
 	bool "Android Low Memory Killer: detect oom_adj values"

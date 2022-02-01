@@ -295,6 +295,15 @@ config SW_SYNC
 config NETFILTER_XT_TARGET_CHECKSUM
 	def_bool y
 
+config USER_NS
+	def_bool y
+
+config PACKET_DIAG
+	def_bool y
+
+config NETLINK_DIAG
+	def_bool y
+
 #
 # An arch should select this if it provides all these things:
 #

@@ -4955,13 +4955,6 @@ static int iris_vidioc_g_fmt_type_private(struct file *file, void *priv,
 
 }
 
-static int vidioc_g_fmt_type_private(struct file *file, void *priv,
-						struct v4l2_format *f)
-{
-	return 0;
-
-}
-
 static int iris_vidioc_s_hw_freq_seek(struct file *file, void *priv,
 					struct v4l2_hw_freq_seek *seek)
 {
@@ -5100,6 +5093,7 @@ static const struct v4l2_ioctl_ops iris_ioctl_ops = {
 	.vidioc_s_frequency           = iris_vidioc_s_frequency,
 	.vidioc_s_hw_freq_seek        = iris_vidioc_s_hw_freq_seek,
 	.vidioc_dqbuf                 = iris_vidioc_dqbuf,
+	.vidioc_g_fmt_type_private    = iris_vidioc_g_fmt_type_private,
 	.vidioc_s_ext_ctrls           = iris_vidioc_s_ext_ctrls,
 	.vidioc_g_ext_ctrls           = iris_vidioc_g_ext_ctrls,
 };
@@ -5239,10 +5233,16 @@ static int iris_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id iris_fm_match[] = {
+	{.compatible = "qcom,iris_fm"},
+	{}
+};
+
 static struct platform_driver iris_driver = {
 	.driver = {
 		.owner  = THIS_MODULE,
 		.name   = "iris_fm",
+		.of_match_table = iris_fm_match,
 	},
 	.remove = iris_remove,
 };

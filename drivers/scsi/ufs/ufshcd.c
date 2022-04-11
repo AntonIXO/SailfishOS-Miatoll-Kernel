@@ -2491,7 +2491,7 @@ static ssize_t ufshcd_clkgate_enable_store(struct device *dev,
 		goto out;
 
 	if (value)
-		ufshcd_release(hba, false);
+		hba->clk_gating.active_reqs--;
 	else
 		hba->clk_gating.active_reqs++;
 
@@ -4626,7 +4626,6 @@ static int ufshcd_read_desc_param(struct ufs_hba *hba,
 	int ret;
 	u8 *desc_buf;
 	int buff_len;
-	bool is_kmalloc = true;
 
 	/* Safety check */
 	if (desc_id >= QUERY_DESC_IDN_MAX || !param_size)
@@ -4644,15 +4643,16 @@ static int ufshcd_read_desc_param(struct ufs_hba *hba,
 		return ret;
 	}
 
-	/* Check whether we need temp memory */
-	if (param_offset != 0 || param_size < buff_len) {
-		desc_buf = kmalloc(buff_len, GFP_KERNEL);
-		if (!desc_buf)
-			return -ENOMEM;
-	} else {
-		desc_buf = param_read_buf;
-		is_kmalloc = false;
+	/* Boundary check */
+	if (param_size == 0 || (param_offset + param_size) > buff_len) {
+		dev_err(hba->dev, "%s: Out of desc boundary or null size",
+			__func__);
+		return -EINVAL;
 	}
+
+	desc_buf = kmalloc(buff_len, GFP_KERNEL);
+	if (!desc_buf)
+		return -ENOMEM;
 
 	/* Request for full descriptor */
 	ret = ufshcd_query_descriptor_retry(hba, UPIU_QUERY_OPCODE_READ_DESC,
@@ -4673,15 +4673,9 @@ static int ufshcd_read_desc_param(struct ufs_hba *hba,
 		goto out;
 	}
 
-	/* Check wherher we will not copy more data, than available */
-	if (is_kmalloc && param_offset + param_size > buff_len)
-		param_size = buff_len - param_offset;
-
-	if (is_kmalloc)
-		memcpy(param_read_buf, &desc_buf[param_offset], param_size);
+	memcpy(param_read_buf, &desc_buf[param_offset], param_size);
 out:
-	if (is_kmalloc)
-		kfree(desc_buf);
+	kfree(desc_buf);
 	return ret;
 }
 
@@ -6501,15 +6495,12 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 			cmd->result = result;
 			if (cmd->request)
 				ufshcd_pm_qos_put(hba);
-			clear_bit_unlock(index, &hba->lrb_in_use);
 			lrbp->complete_time_stamp = ktime_get();
 			update_req_stats(hba, lrbp);
 			ufshcd_complete_lrbp_crypto(hba, cmd, lrbp);
 			/* Mark completed command as NULL in LRB */
 			lrbp->cmd = NULL;
 			hba->ufs_stats.clk_rel.ctx = XFR_REQ_COMPL;
-			__ufshcd_release(hba, false);
-			__ufshcd_hibern8_release(hba, false);
 			req = cmd->request;
 			if (req) {
 				/* Update IO svc time latency histogram */
@@ -6526,6 +6517,10 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 						delta_us);
 				}
 			}
+
+			clear_bit_unlock(index, &hba->lrb_in_use);
+			__ufshcd_release(hba, false);
+			__ufshcd_hibern8_release(hba, false);
 
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
@@ -6578,12 +6573,10 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba, int result)
 			/* Clear pending transfer requests */
 			ufshcd_clear_cmd(hba, index);
 			ufshcd_outstanding_req_clear(hba, index);
-			clear_bit_unlock(index, &hba->lrb_in_use);
 			lrbp->complete_time_stamp = ktime_get();
 			update_req_stats(hba, lrbp);
 			/* Mark completed command as NULL in LRB */
 			lrbp->cmd = NULL;
-			ufshcd_release_all(hba);
 			/* Do not touch lrbp after scsi done */
 			cmd->scsi_done(cmd);
 		} else if (lrbp->command_type == UTP_CMD_TYPE_DEV_MANAGE) {
@@ -10294,6 +10287,12 @@ disable_clks:
 	if (ret)
 		goto set_link_active;
 
+	/*
+	 * Disable the host irq as host controller as there won't be any
+	 * host controller transaction expected till resume.
+	 */
+	ufshcd_disable_irq(hba);
+
 	/* reset the connected UFS device during power down */
 	if (ufshcd_is_link_off(hba)) {
 		ret = ufshcd_assert_device_reset(hba);
@@ -10317,11 +10316,6 @@ disable_clks:
 		trace_ufshcd_clk_gating(dev_name(hba->dev),
 					hba->clk_gating.state);
 	}
-	/*
-	 * Disable the host irq as host controller as there won't be any
-	 * host controller transaction expected till resume.
-	 */
-	ufshcd_disable_irq(hba);
 
 	if (!hba->auto_bkops_enabled ||
 		!(req_dev_pwr_mode == UFS_ACTIVE_PWR_MODE &&
@@ -10333,6 +10327,7 @@ disable_clks:
 	goto out;
 
 set_link_active:
+	ufshcd_enable_irq(hba);
 	if (hba->clk_scaling.is_allowed)
 		ufshcd_resume_clkscaling(hba);
 	ufshcd_vreg_set_hpm(hba);

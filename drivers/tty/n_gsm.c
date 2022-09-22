@@ -423,27 +423,6 @@ static int gsm_read_ea(unsigned int *val, u8 c)
 }
 
 /**
- *	gsm_read_ea_val	-	read a value until EA
- *	@val: variable holding value
- *	@data: buffer of data
- *	@dlen: length of data
- *
- *	Processes an EA value. Updates the passed variable and
- *	returns the processed data length.
- */
-static unsigned int gsm_read_ea_val(unsigned int *val, const u8 *data, int dlen)
-{
-	unsigned int len = 0;
-
-	for (; dlen > 0; dlen--) {
-		len++;
-		if (gsm_read_ea(val, *data++))
-			break;
-	}
-	return len;
-}
-
-/**
  *	gsm_encode_modem	-	encode modem data bits
  *	@dlci: DLCI to encode from
  *
@@ -691,37 +670,6 @@ static struct gsm_msg *gsm_data_alloc(struct gsm_mux *gsm, u8 addr, int len,
 }
 
 /**
- *	gsm_is_flow_ctrl_msg	-	checks if flow control message
- *	@msg: message to check
- *
- *	Returns true if the given message is a flow control command of the
- *	control channel. False is returned in any other case.
- */
-static bool gsm_is_flow_ctrl_msg(struct gsm_msg *msg)
-{
-	unsigned int cmd;
-
-	if (msg->addr > 0)
-		return false;
-
-	switch (msg->ctrl & ~PF) {
-	case UI:
-	case UIH:
-		cmd = 0;
-		if (gsm_read_ea_val(&cmd, msg->data + 2, msg->len - 2) < 1)
-			break;
-		switch (cmd & ~PF) {
-		case CMD_FCOFF:
-		case CMD_FCON:
-			return true;
-		}
-		break;
-	}
-
-	return false;
-}
-
-/**
  *	gsm_data_kick		-	poke the queue
  *	@gsm: GSM Mux
  *
@@ -739,7 +687,7 @@ static void gsm_data_kick(struct gsm_mux *gsm, struct gsm_dlci *dlci)
 	int len;
 
 	list_for_each_entry_safe(msg, nmsg, &gsm->tx_list, list) {
-		if (gsm->constipated && !gsm_is_flow_ctrl_msg(msg))
+		if (gsm->constipated && msg->addr)
 			continue;
 		if (gsm->encoding != 0) {
 			gsm->txframe[0] = GSM1_SOF;
@@ -1394,7 +1342,7 @@ static void gsm_control_retransmit(unsigned long data)
 	spin_lock_irqsave(&gsm->control_lock, flags);
 	ctrl = gsm->pending_cmd;
 	if (ctrl) {
-		if (gsm->cretries == 0 || !gsm->dlci[0] || gsm->dlci[0]->dead) {
+		if (gsm->cretries == 0) {
 			gsm->pending_cmd = NULL;
 			ctrl->error = -ETIMEDOUT;
 			ctrl->done = 1;
@@ -1546,8 +1494,8 @@ static void gsm_dlci_t1(unsigned long data)
 
 	switch (dlci->state) {
 	case DLCI_OPENING:
+		dlci->retries--;
 		if (dlci->retries) {
-			dlci->retries--;
 			gsm_command(dlci->gsm, dlci->addr, SABM|PF);
 			mod_timer(&dlci->t1, jiffies + gsm->t1 * HZ / 100);
 		} else if (!dlci->addr && gsm->control == (DM | PF)) {
@@ -1562,8 +1510,8 @@ static void gsm_dlci_t1(unsigned long data)
 
 		break;
 	case DLCI_CLOSING:
+		dlci->retries--;
 		if (dlci->retries) {
-			dlci->retries--;
 			gsm_command(dlci->gsm, dlci->addr, DISC|PF);
 			mod_timer(&dlci->t1, jiffies + gsm->t1 * HZ / 100);
 		} else
@@ -1906,7 +1854,7 @@ static void gsm_queue(struct gsm_mux *gsm)
 			goto invalid;
 #endif
 		if (dlci == NULL || dlci->state != DLCI_OPEN) {
-			gsm_response(gsm, address, DM|PF);
+			gsm_command(gsm, address, DM|PF);
 			return;
 		}
 		dlci->data(dlci, gsm->buf, gsm->len);
@@ -2533,24 +2481,11 @@ static ssize_t gsmld_read(struct tty_struct *tty, struct file *file,
 static ssize_t gsmld_write(struct tty_struct *tty, struct file *file,
 			   const unsigned char *buf, size_t nr)
 {
-	struct gsm_mux *gsm = tty->disc_data;
-	unsigned long flags;
-	int space;
-	int ret;
-
-	if (!gsm)
-		return -ENODEV;
-
-	ret = -ENOBUFS;
-	spin_lock_irqsave(&gsm->tx_lock, flags);
-	space = tty_write_room(tty);
+	int space = tty_write_room(tty);
 	if (space >= nr)
-		ret = tty->ops->write(tty, buf, nr);
-	else
-		set_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
-	spin_unlock_irqrestore(&gsm->tx_lock, flags);
-
-	return ret;
+		return tty->ops->write(tty, buf, nr);
+	set_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
+	return -ENOBUFS;
 }
 
 /**
